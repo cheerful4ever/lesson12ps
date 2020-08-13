@@ -1,68 +1,55 @@
 package sg.edu.rp.webservices.lesson12ps;
 
-import androidx.appcompat.app.AppCompatActivity;
-import androidx.core.app.NotificationCompat;
-
-import android.app.Notification;
-import android.app.NotificationChannel;
-import android.app.NotificationManager;
-import android.app.PendingIntent;
-import android.content.Context;
 import android.content.Intent;
-import android.os.Build;
 import android.os.Bundle;
+import android.view.View;
+import android.widget.ArrayAdapter;
+import android.widget.Button;
+import android.widget.ListView;
+import androidx.appcompat.app.AppCompatActivity;
+import java.util.ArrayList;
 
 public class MainActivity extends AppCompatActivity {
-    int notifReqCode = 1234;
+
+    ListView lv;
+    ArrayList<Task> tasks;
+    ArrayAdapter<Task> adapter;
+    Button btnAdd;
+    int actReqCode = 1;
 
     @Override
-    public void onReceive(Context context, Intent i) {
+    protected void onCreate(Bundle savedInstanceState) {
+        super.onCreate(savedInstanceState);
+        setContentView(R.layout.activity_main);
 
-        int id = i.getIntExtra("id", -1);
-        String name = i.getStringExtra("name");
-        String desc = i.getStringExtra("desc");
+        lv = (ListView) findViewById(R.id.lv);
+        btnAdd = (Button) findViewById(R.id.btnAdd);
 
-        Tasks task = (Tasks) i.getSerializableExtra("task");
+        DBHelper dbh = new DBHelper(this);
+        tasks = dbh.getAllTasks();
+        adapter = new ArrayAdapter<Task>(this, android.R.layout.simple_list_item_1, tasks);
+        lv.setAdapter(adapter);
 
-        NotificationManager notificationManager = (NotificationManager)
-                context.getSystemService(Context.NOTIFICATION_SERVICE);
+        btnAdd.setOnClickListener(new View.OnClickListener() {
+            @Override
+            public void onClick(View view) {
+                Intent i = new Intent(MainActivity.this, AddActivity.class);
+                startActivityForResult(i, actReqCode);
+            }
+        });
+    }
 
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
-            NotificationChannel channel = new
-                    NotificationChannel("default", "Default Channel",
-                    NotificationManager.IMPORTANCE_DEFAULT);
-
-            channel.setDescription("This is for default notification");
-            notificationManager.createNotificationChannel(channel);
+    @Override
+    protected void onActivityResult(int requestCode, int resultCode, Intent data) {
+        if (requestCode == actReqCode) {
+            if (resultCode == RESULT_OK) {
+                DBHelper dbh = new DBHelper(MainActivity.this);
+                tasks.clear();
+                tasks.addAll(dbh.getAllTasks());
+                dbh.close();
+                adapter.notifyDataSetChanged();
+            }
         }
-
-        Intent intent = new Intent(context, MainActivity.class);
-        PendingIntent pIntent = PendingIntent.getActivity(context, notifReqCode,
-                intent, PendingIntent.FLAG_CANCEL_CURRENT);
-
-        NotificationCompat.Action action = new
-                NotificationCompat.Action.Builder(
-                R.mipmap.ic_launcher,
-                desc,
-                pIntent).build();
-
-        NotificationCompat.WearableExtender extender = new
-                NotificationCompat.WearableExtender();
-        extender.addAction(action);
-
-
-        // build notification
-        NotificationCompat.Builder builder = new NotificationCompat.Builder(context, "default");
-        builder.setContentTitle("Task Manager Reminder");
-        builder.setContentText(name);
-        builder.setSmallIcon(android.R.drawable.ic_dialog_info);
-        builder.setContentIntent(pIntent);
-        builder.setAutoCancel(true);
-
-        builder.extend(extender);
-
-        Notification n = builder.build();
-
-        notificationManager.notify(notifReqCode, n);
+        super.onActivityResult(requestCode, resultCode, data);
     }
 }
